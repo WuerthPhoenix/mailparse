@@ -9,7 +9,6 @@ use std::collections::BTreeMap;
 
 use charset::Charset;
 use charset::decode_latin1;
-use charset::decode_ascii;
 
 pub mod body;
 mod dateparse;
@@ -655,14 +654,12 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body().unwrap(), "This is the body");
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
-        let decoded = self.get_body_raw()?;
-        let cow = if let Some(charset) = Charset::for_label(self.ctype.charset.as_bytes()) {
-            let (cow, _, _) = charset.decode(&decoded);
-            cow
-        } else {
-            decode_ascii(&decoded)
-        };
-        Ok(cow.into_owned())
+        match self.get_body_untouched()? {
+            Body::Base64(body) => body.get_decoded_text(),
+            Body::QuotedPrintable(body) => body.get_decoded_text(),
+            Body::SevenBit(body) | Body::EightBit(body) => body.get_text(),
+            Body::Binary(_) => Err(MailParseError::Generic("Message body of type binary body cannot be parsed into a string")),
+        }
     }
 
     /// Get the body of the message as a Rust Vec<u8>. This function tries to
@@ -680,27 +677,12 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
-        let transfer_coding = self
-            .headers
-            .get_first_value("Content-Transfer-Encoding")?
-            .map(|s| s.to_lowercase());
-
-        let decoded = match transfer_coding {
-            Some(ref enc) if enc == "base64" => {
-                let cleaned = self
-                    .body
-                    .iter()
-                    .filter(|c| !c.is_ascii_whitespace())
-                    .cloned()
-                    .collect::<Vec<u8>>();
-                base64::decode(&cleaned)?
-            }
-            Some(ref enc) if enc == "quoted-printable" => {
-                quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)?
-            }
-            _ => Vec::<u8>::from(self.body),
-        };
-        Ok(decoded)
+        match self.get_body_untouched()? {
+            Body::Base64(body) => body.get_decoded(),
+            Body::QuotedPrintable(body) => body.get_decoded(),
+            Body::SevenBit(body) | Body::EightBit(body) => Ok(Vec::<u8>::from(body.get_raw())),
+            Body::Binary(body) => Ok(Vec::<u8>::from(body.get_raw())),
+        }
     }
 
     pub fn get_body_untouched(&'a self) -> Result<Body<'a>, MailParseError> {
