@@ -11,9 +11,11 @@ use charset::Charset;
 use charset::decode_latin1;
 use charset::decode_ascii;
 
+pub mod body;
 mod dateparse;
 
 pub use dateparse::dateparse;
+use body::Body;
 
 /// An error type that represents the different kinds of errors that may be
 /// encountered during message parsing.
@@ -699,6 +701,15 @@ impl<'a> ParsedMail<'a> {
             _ => Vec::<u8>::from(self.body),
         };
         Ok(decoded)
+    }
+
+    pub fn get_body_untouched(&'a self) -> Result<Body<'a>, MailParseError> {
+        let transfer_encoding = self
+            .headers
+            .get_first_value("Content-Transfer-Encoding")?
+            .map(|s| s.to_lowercase());
+
+        Ok(Body::new(self.body, &self.ctype, &transfer_encoding))
     }
 
     /// Returns a struct containing a parsed representation of the
