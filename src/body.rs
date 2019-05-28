@@ -76,7 +76,7 @@ impl<'a> EncodedBody<'a> {
     /// (or "us-ascii" if the charset was missing or not recognized).
     /// This operation returns a valid result only if the decoded body
     /// has a text format.
-    pub fn get_decoded_text(&self) -> Result<String, MailParseError> {
+    pub fn get_decoded_as_string(&self) -> Result<String, MailParseError> {
         get_body_as_string(&self.get_decoded()?, &self.ctype)
     }
 }
@@ -102,7 +102,7 @@ impl<'a> TextBody<'a> {
     /// This function converts the body into a Rust UTF-8 string using the charset
     /// in the Content-Type
     /// (or "us-ascii" if the charset was missing or not recognized).
-    pub fn get_text(&self) -> Result<String, MailParseError> {
+    pub fn get_as_string(&self) -> Result<String, MailParseError> {
         get_body_as_string(self.body, &self.ctype)
     }
 }

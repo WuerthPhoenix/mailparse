@@ -652,8 +652,8 @@ impl<'a> ParsedMail<'a> {
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
         match self.get_body_untouched()? {
-            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_text(),
-            Body::SevenBit(body) | Body::EightBit(body) => body.get_text(),
+            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_as_string(),
+            Body::SevenBit(body) | Body::EightBit(body) => body.get_as_string(),
             Body::Binary(_) => Err(MailParseError::Generic(
                 "Message body of type binary body cannot be parsed into a string",
             )),
@@ -1266,7 +1266,7 @@ mod tests {
         match body {
             Body::SevenBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
-                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
             _ => assert!(false),
         };
@@ -1279,7 +1279,7 @@ mod tests {
         match body {
             Body::SevenBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
-                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
             _ => assert!(false),
         };
@@ -1292,7 +1292,7 @@ mod tests {
         match body {
             Body::EightBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
-                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
             _ => assert!(false),
         };
@@ -1307,7 +1307,7 @@ mod tests {
             Body::QuotedPrintable(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
-                assert_eq!(body.get_decoded_text().unwrap(), "\u{2603}");
+                assert_eq!(body.get_decoded_as_string().unwrap(), "\u{2603}");
             }
             _ => assert!(false),
         };
@@ -1321,7 +1321,7 @@ mod tests {
             Body::Base64(body) => {
                 assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
                 assert_eq!(body.get_decoded().unwrap(), b"hello world");
-                assert_eq!(body.get_decoded_text().unwrap(), "hello world");
+                assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
             }
             _ => assert!(false),
         };
@@ -1349,7 +1349,7 @@ mod tests {
         let subpart_0 = mail.subparts.get(0).unwrap();
         match subpart_0.get_body_untouched().unwrap() {
             Body::SevenBit(body) => {
-                assert_eq!(body.get_text().unwrap().trim(), "<html>Test with attachments</html>");
+                assert_eq!(body.get_as_string().unwrap().trim(), "<html>Test with attachments</html>");
             }
             _ => assert!(false),
         };
@@ -1367,7 +1367,7 @@ mod tests {
         let subpart_2 = mail.subparts.get(2).unwrap();
         match subpart_2.get_body_untouched().unwrap() {
             Body::Base64(body) => {
-                assert_eq!(body.get_decoded_text().unwrap(), "txt file context for email collector\n1234567890987654321\n");
+                assert_eq!(body.get_decoded_as_string().unwrap(), "txt file context for email collector\n1234567890987654321\n");
             }
             _ => assert!(false),
         };
