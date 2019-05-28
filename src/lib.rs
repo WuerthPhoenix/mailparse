@@ -1258,4 +1258,84 @@ mod tests {
         let parsed = parse_param_content(r#"Content-Type: application/octet-stream; name=""#);
         assert_eq!(parsed.params["name"], "\"");
     }
+
+    #[test]
+    fn test_default_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_untouched().unwrap();
+        match body {
+            Body::SevenBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_7bit_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 7bit\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_untouched().unwrap();
+        match body {
+            Body::SevenBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_8bit_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 8bit\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_untouched().unwrap();
+        match body {
+            Body::EightBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_text().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_quoted_printable_content_encoding() {
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n+JgM-",
+        ).unwrap();
+        match mail.get_body_untouched().unwrap() {
+            Body::QuotedPrintable(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
+                assert_eq!(body.get_decoded_text().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_base64_content_encoding() {
+        let mail =
+            parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        match mail.get_body_untouched().unwrap() {
+            Body::Base64(body) => {
+                assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
+                assert_eq!(body.get_decoded().unwrap(), b"hello world");
+                assert_eq!(body.get_decoded_text().unwrap(), "hello world");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_binary_content_encoding() {
+        let mail = parse_mail(b"Content-Transfer-Encoding: binary\r\n\r\n######").unwrap();
+        let body = mail.get_body_untouched().unwrap();
+        match body {
+            Body::Binary(body) => {
+                assert_eq!(body.get_raw(), b"######");
+            }
+            _ => assert!(false),
+        };
+    }
 }
